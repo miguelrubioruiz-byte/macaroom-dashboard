@@ -11,6 +11,11 @@ export default function Dashboard() {
   const [activeTab, setActiveTab]     = useState('panel');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const logout = async () => {
+    await fetch('/api/logout', { method: 'POST' });
+    window.location.href = '/login';
+  };
+
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-slate-50">
       <p className="text-gray-500 text-lg">Cargando datos... 🗝️</p>
@@ -49,7 +54,7 @@ export default function Dashboard() {
 
   const handleNavClick = (id) => {
     setActiveTab(id);
-    setSidebarOpen(false); // cierra el menú al navegar en móvil
+    setSidebarOpen(false);
   };
 
   return (
@@ -97,6 +102,17 @@ export default function Dashboard() {
             {item.label}
           </button>
         ))}
+
+        {/* ── Botón cerrar sesión ── */}
+        <div className="mt-auto pt-4 border-t border-slate-700">
+          <button
+            onClick={logout}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-red-600 hover:text-white transition-colors w-full text-left"
+          >
+            <span>🚪</span> Cerrar sesión
+          </button>
+        </div>
+
       </aside>
 
       {/* ── Contenido principal ── */}
@@ -109,7 +125,6 @@ export default function Dashboard() {
             className="text-slate-300 hover:text-white p-1"
             aria-label="Abrir menú"
           >
-            {/* Icono hamburguesa */}
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
@@ -292,5 +307,3 @@ function ChartCard({ title, children }) {
     </div>
   );
 }
-
-
