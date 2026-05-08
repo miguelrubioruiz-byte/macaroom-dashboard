@@ -7,11 +7,21 @@ export function useKPIs() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    fetch('/api/me')
-      .then(r => r.json())
-      .then(d => setIsAdmin(d.role === 'admin'));
-  }, []);
+ useEffect(() => {
+  fetch('/api/me')
+    .then(r => r.json()) // Intentamos leer el JSON directamente
+    .then(d => {
+      if (d && d.role === 'admin') {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+      }
+    })
+    .catch(err => {
+      console.log("Sesión no encontrada o error silencioso");
+      setIsAdmin(false);
+    });
+}, []);
 
   async function fetchData(admin) {
     const { data: reservas } = await supabase

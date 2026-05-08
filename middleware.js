@@ -4,15 +4,16 @@ import { NextResponse } from 'next/server';
 export function middleware(request) {
   const session = request.cookies.get('macaroom_session');
 
-  // Si no hay cookie válida, redirige al login
-  if (!session || session.value !== 'true') {
+ // En middleware.js
+if (!session || !session.value) { // Solo verifica que la cookie exista
     return NextResponse.redirect(new URL('/login', request.url));
-  }
+}
 
   return NextResponse.next();
 }
 
-// Protege solo la ruta del dashboard
 export const config = {
-  matcher: ['/'],
+  // Esto protege TODO excepto: 
+  // api, archivos estáticos (_next), imágenes y el propio login
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|login).*)'],
 };
