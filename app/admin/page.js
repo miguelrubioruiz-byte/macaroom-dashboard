@@ -1,8 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { BarChart, Bar, XAxis, YAxis, Tooltip,
-         LineChart, Line, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function AdminDashboard() {
   const [metricas, setMetricas] = useState([]);
@@ -22,6 +21,7 @@ export default function AdminDashboard() {
     return () => clearInterval(i);
   }, []);
 
+  // Lógica de cálculos basada en los estados de tu DB (SUCCESS / ERROR)
   const total       = metricas.length;
   const errores     = metricas.filter(m => m.estado === 'ERROR').length;
   const tasaError   = total > 0 ? ((errores/total)*100).toFixed(1) : 0;
@@ -31,14 +31,13 @@ export default function AdminDashboard() {
   const disponib    = total > 0
     ? (100 - tasaError).toFixed(1) : 100;
 
-  // Errores por tipo
   const porTipo = Object.entries(
-    metricas.filter(m=>m.tipo_error)
+    metricas.filter(m=>m.tipo_error && m.tipo_error !== 'null')
       .reduce((acc,m)=>{acc[m.tipo_error]=(acc[m.tipo_error]||0)+1;return acc;},{})
   ).map(([tipo,count])=>({tipo,count}));
 
   return (
-    <main className="max-w-6xl mx-auto px-4 py-8">
+    <main className="max-w-6xl mx-auto px-4 py-8 text-black"> {/* Letras en negro para el contenido general */}
       <h1 className="text-3xl font-bold text-slate-800 mb-1">
         ⚙️ Panel Admin — Macaroom
       </h1>
@@ -54,10 +53,10 @@ export default function AdminDashboard() {
 
       {porTipo.length > 0 && (
         <div className="bg-white rounded-2xl shadow p-6 mb-6">
-          <h2 className="font-bold text-lg mb-4">❌ Errores por tipo</h2>
+          <h2 className="font-bold text-lg mb-4 text-black">❌ Errores por tipo</h2>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={porTipo}>
-              <XAxis dataKey="tipo" /><YAxis /><Tooltip />
+              <XAxis dataKey="tipo" stroke="#000" /><YAxis stroke="#000" /><Tooltip />
               <Bar dataKey="count" fill="#DC2626" radius={[4,4,0,0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -65,35 +64,43 @@ export default function AdminDashboard() {
       )}
 
       <div className="bg-white rounded-2xl shadow p-6">
-        <h2 className="font-bold text-lg mb-4">📋 Últimas ejecuciones</h2>
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              {['Hora','Operación','Sala','Duración','Estado'].map(h =>
-                <th key={h} className="px-3 py-2 text-left">{h}</th>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {metricas.slice(0,20).map(m => (
-              <tr key={m.id} className="border-t">
-                <td className="px-3 py-2">
-                  {new Date(m.timestamp).toLocaleTimeString('es-ES')}
-                </td>
-                <td className="px-3 py-2">{m.tipo_operacion}</td>
-                <td className="px-3 py-2">{m.sala || '—'}</td>
-                <td className="px-3 py-2">{m.duracion_ms ? `${m.duracion_ms}ms` : '—'}</td>
-                <td className="px-3 py-2">
-                  <span className={m.estado==='OK'
-                    ? 'text-green-600 font-semibold'
-                    : 'text-red-600 font-semibold'}>
-                    {m.estado}
-                  </span>
-                </td>
+        <h2 className="font-bold text-lg mb-4 text-black">📋 Últimas ejecuciones</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-black"> 
+            <thead className="bg-gray-50 text-gray-700">
+              <tr>
+                <th className="px-3 py-3 text-left font-bold">Hora</th>
+                <th className="px-3 py-3 text-left font-bold">Operación</th>
+                <th className="px-3 py-3 text-left font-bold">Estado</th>
+                <th className="px-3 py-3 text-left font-bold">Detalles</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {metricas.slice(0,20).map(m => (
+                <tr key={m.id} className="border-t border-gray-100 hover:bg-gray-50 transition-colors">
+                  <td className="px-3 py-3 font-medium">
+                    {new Date(m.timestamp).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </td>
+                  <td className="px-3 py-3 text-gray-600">
+                    {m.tipo_operacion}
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className={`font-bold px-2 py-1 rounded-md ${
+                      m.estado === 'SUCCESS' 
+                        ? 'text-green-600 bg-green-50' 
+                        : 'text-red-600 bg-red-50'
+                    }`}>
+                      {m.estado}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-gray-500 italic max-w-xs truncate">
+                    {m.detalles ? (typeof m.detalles === 'object' ? JSON.stringify(m.detalles) : m.detalles) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </main>
   );
@@ -105,9 +112,9 @@ function KPICard({ label, value, color }) {
     green:'bg-green-50 text-green-700', purple:'bg-purple-50 text-purple-700'
   };
   return (
-    <div className={`rounded-2xl p-5 ${colors[color]}`}>
+    <div className={`rounded-2xl p-5 shadow-sm border border-opacity-10 ${colors[color]}`}>
       <p className="text-3xl font-bold">{value}</p>
-      <p className="text-sm mt-1 opacity-75">{label}</p>
+      <p className="text-sm mt-1 opacity-80 font-medium">{label}</p>
     </div>
   );
 }

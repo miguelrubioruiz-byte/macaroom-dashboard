@@ -3,17 +3,27 @@ import { NextResponse } from 'next/server';
 
 export function middleware(request) {
   const session = request.cookies.get('macaroom_session');
+  const { pathname } = request.nextUrl;
 
- // En middleware.js
-if (!session || !session.value) { // Solo verifica que la cookie exista
-    return NextResponse.redirect(new URL('/login', request.url));
-}
+  // Si intentan entrar a /admin
+  if (pathname.startsWith('/admin')) {
+    // Si no hay cookie o el valor NO es 'admin', fuera.
+    if (!session || session.value !== 'admin') {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
+
+  // Si intentan entrar a la raíz (/)
+  if (pathname === '/') {
+    if (!session) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
+  }
 
   return NextResponse.next();
 }
 
 export const config = {
-  // Esto protege TODO excepto: 
-  // api, archivos estáticos (_next), imágenes y el propio login
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|login).*)'],
+  // Asegúrate de que el matcher incluya /admin
+  matcher: ['/', '/admin/:path*'],
 };
