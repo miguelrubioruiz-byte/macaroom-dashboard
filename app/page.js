@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useKPIs } from './hooks/useKPIs';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
@@ -10,6 +10,13 @@ export default function Dashboard() {
   const { data, loading } = useKPIs();
   const [activeTab, setActiveTab]     = useState('panel');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isAdmin, setIsAdmin]         = useState(false);
+
+  useEffect(() => {
+    fetch('/api/me')
+      .then(r => r.json())
+      .then(d => setIsAdmin(d.role === 'admin'));
+  }, []);
 
   const logout = async () => {
     await fetch('/api/logout', { method: 'POST' });
@@ -22,7 +29,7 @@ export default function Dashboard() {
     </div>
   );
 
-  const { reservas, hoy } = data;
+  const { reservas, hoy, metricas } = data;
   const total       = reservas.length;
   const canceladas  = reservas.filter(r => r.estado === 'CANCELADA').length;
   const tasaCancel  = total > 0 ? ((canceladas / total) * 100).toFixed(1) : 0;
@@ -50,6 +57,7 @@ export default function Dashboard() {
   const navItems = [
     { id: 'panel',     label: 'Panel de control', icon: '📊' },
     { id: 'historial', label: 'Historial',        icon: '📋' },
+    ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '🔐' }] : []),
   ];
 
   const handleNavClick = (id) => {
@@ -60,7 +68,6 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen bg-slate-50">
 
-      {/* ── Overlay oscuro (solo móvil, cuando sidebar abierto) ── */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
@@ -76,7 +83,6 @@ export default function Dashboard() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         md:translate-x-0
       `}>
-        {/* Botón cerrar (solo móvil) */}
         <button
           className="md:hidden absolute top-4 right-4 text-slate-400 hover:text-white text-xl"
           onClick={() => setSidebarOpen(false)}
@@ -103,7 +109,6 @@ export default function Dashboard() {
           </button>
         ))}
 
-        {/* ── Botón cerrar sesión ── */}
         <div className="mt-auto pt-4 border-t border-slate-700">
           <button
             onClick={logout}
@@ -112,13 +117,11 @@ export default function Dashboard() {
             <span>🚪</span> Cerrar sesión
           </button>
         </div>
-
       </aside>
 
       {/* ── Contenido principal ── */}
       <div className="flex-1 flex flex-col min-w-0">
 
-        {/* ── Top bar móvil ── */}
         <header className="md:hidden flex items-center gap-3 bg-slate-900 text-white px-4 py-3 sticky top-0 z-10">
           <button
             onClick={() => setSidebarOpen(true)}
@@ -186,8 +189,8 @@ export default function Dashboard() {
               </p>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <KPICard label="Total reservas" value={total}       color="blue"   />
-                <KPICard label="Canceladas"     value={canceladas}  color="red"    />
+                <KPICard label="Total reservas" value={total}      color="blue"   />
+                <KPICard label="Canceladas"     value={canceladas} color="red"    />
                 <KPICard label="Hotel Premier"
                   value={reservas.filter(r => r.sala === 'Hotel Premier').length}
                   color="green" />
@@ -248,6 +251,48 @@ export default function Dashboard() {
               </div>
             </>
           )}
+
+          {/* ════ ADMIN ════ */}
+          {activeTab === 'admin' && isAdmin && (
+            <>
+              <h1 className="text-2xl font-bold text-slate-800 mb-1">🔐 Admin</h1>
+              <p className="text-gray-400 text-sm mb-6">Métricas técnicas del agente</p>
+
+              <div className="bg-white rounded-2xl shadow p-4 md:p-6">
+                <h2 className="font-bold text-lg mb-4 text-gray-900">📊 Métricas agente</h2>
+                {!metricas || metricas.length === 0
+                  ? <p className="text-gray-400">No hay métricas registradas.</p>
+                  : (
+                    <div className="overflow-x-auto -mx-4 md:mx-0">
+                      <table className="w-full text-sm min-w-[500px]">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            {Object.keys(metricas[0]).map(col => (
+                              <th key={col} className="px-3 py-2 text-left text-gray-600 font-semibold whitespace-nowrap capitalize">
+                                {col}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {metricas.map((m, i) => (
+                            <tr key={i} className="border-t hover:bg-slate-50 transition-colors">
+                              {Object.values(m).map((val, j) => (
+                                <td key={j} className="px-3 py-2 text-gray-700 text-xs whitespace-nowrap">
+                                  {val ?? '—'}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                }
+              </div>
+            </>
+          )}
+
         </main>
       </div>
     </div>
