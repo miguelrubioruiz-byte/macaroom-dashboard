@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 
-export default function LoginPage() {
+export default function Home() {
   const [password, setPassword] = useState('');
 
   const entrar = async (e) => {
     e.preventDefault();
     // Esta alerta nos dirá si el código llega hasta aquí
-    alert("Intentando conectar con la API..."); 
+    //alert("Intentando conectar con la API..."); 
 
     const res = await fetch('/api/login', {
       method: 'POST',
