@@ -6,46 +6,71 @@ import {
   LineChart, Line, ResponsiveContainer, CartesianGrid
 } from 'recharts';
 
+// --- SOLUCIÓN PARA LOS AVISOS AMARILLOS DE RECHARTS ---
+if (typeof window !== 'undefined') {
+  const originalWarn = console.warn;
+  console.warn = (...args) => {
+    if (args[0]?.includes?.('The width(-1) and height(-1) of chart should be greater than 0')) return;
+    originalWarn(...args);
+  };
+}
+
 export default function Dashboard() {
   const { data, loading } = useKPIs();
   const [activeTab, setActiveTab]     = useState('panel');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isAdmin, setIsAdmin]         = useState(false);
+  const [isMounted, setIsMounted]     = useState(false);
+  
+  const [filtersHoy, setFiltersHoy] = useState({ 
+    hora: '', sala: '', nombre: '', telefono: '', personas: '' 
+  });
+  const [filtersHist, setFiltersHist] = useState({ 
+    codigo: '', fecha: '', hora: '', sala: '', nombre: '', telefono: '', personas: '', email: '', estado: '' 
+  });
 
   useEffect(() => {
+    setIsMounted(true);
     fetch('/api/me')
       .then(r => r.json())
-      .then(d => setIsAdmin(d.role === 'admin'));
+      .then(d => setIsAdmin(d?.role === 'admin'))
+      .catch(err => console.error("Error en sesión:", err));
   }, []);
+
+  // --- LÓGICA DE ACCESO A ADMINISTRACIÓN (Referencia image_11.png) ---
+  const handleAdminAccess = () => {
+    const pass = prompt("Introduce la contraseña de administrador:");
+    // Usamos la clave exacta de tu configuración: ClaveAdminPrivada2026
+    if (pass === 'ClaveAdminPrivada2026') { 
+      window.location.href = '/admin';
+    } else if (pass !== null) {
+      alert("Contraseña incorrecta. Acceso denegado.");
+    }
+  };
 
   const logout = async () => {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/login';
   };
 
-  if (loading) return (
-    <div className="flex items-center justify-center min-h-screen bg-slate-50">
-      <p className="text-gray-500 text-lg">Cargando datos... 🗝️</p>
+  if (loading || !isMounted) return (
+    <div className="flex items-center justify-center min-h-screen bg-[#050a18]">
+      <div className="text-center">
+        <div className="w-16 h-16 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+        <p className="text-yellow-400 text-lg font-bold tracking-[0.2em]">CARGANDO MACAROOM...</p>
+      </div>
     </div>
   );
 
-  const { reservas, hoy, metricas } = data;
-  const total       = reservas.length;
-  const canceladas  = reservas.filter(r => r.estado === 'CANCELADA').length;
-  const tasaCancel  = total > 0 ? ((canceladas / total) * 100).toFixed(1) : 0;
-  const avgPersonas = total > 0
-    ? (reservas.reduce((s, r) => s + r.personas, 0) / total).toFixed(1) : 0;
+  const { reservas = [], hoy = [] } = data || {};
 
-  const porSala = ['Hotel Premier', 'Superheroes'].map(sala => ({
-    sala, total: reservas.filter(r => r.sala === sala).length
-  }));
-
-  const porHora = Array.from({ length: 12 }, (_, i) => {
-    const h = i + 10;
-    return {
-      hora: `${h}:00`,
-      total: reservas.filter(r => parseInt(r.hora) === h).length
-    };
+  // --- FILTROS Y CÁLCULOS ---
+  const hoyFiltrado = hoy.filter(r => {
+    return Object.keys(filtersHoy).every(key => {
+      if (!filtersHoy[key]) return true;
+      const val = key === 'hora' ? r[key]?.slice(0, 5) : r[key];
+      return String(val || '').toLowerCase().includes(filtersHoy[key].toLowerCase());
+    });
   });
 
   const reservasOrdenadas = [...reservas].sort((a, b) => {
@@ -54,301 +79,229 @@ export default function Dashboard() {
     return fechaB - fechaA;
   });
 
+  const historialFiltrado = reservasOrdenadas.filter(r => {
+    return Object.keys(filtersHist).every(key => {
+      if (!filtersHist[key]) return true;
+      const val = key === 'hora' ? r[key]?.slice(0, 5) : r[key];
+      return String(val || '').toLowerCase().includes(filtersHist[key].toLowerCase());
+    });
+  });
+
+  const total       = reservas.length;
+  const canceladas  = reservas.filter(r => r.estado === 'CANCELADA').length;
+  const tasaCancel  = total > 0 ? ((canceladas / total) * 100).toFixed(1) : 0;
+  const avgPersonas = total > 0 ? (reservas.reduce((s, r) => s + r.personas, 0) / total).toFixed(1) : 0;
+
+  const porSala = ['Hotel Premier', 'Superheroes'].map(sala => ({
+    sala, total: reservas.filter(r => r.sala === sala).length
+  }));
+
+  const porHora = Array.from({ length: 13 }, (_, i) => {
+    const h = (i + 10).toString().padStart(2, '0') + ':00';
+    return {
+      hora: h,
+      total: reservas.filter(r => r.hora?.startsWith(h.split(':')[0])).length
+    };
+  });
+
   const navItems = [
-    { id: 'panel',     label: 'Panel de control', icon: '📊' },
-    { id: 'historial', label: 'Historial',        icon: '📋' },
-    ...(isAdmin ? [{ id: 'admin', label: 'Admin', icon: '🔐' }] : []),
+    { id: 'panel',     label: 'PANEL DE CONTROL', icon: '📊', type: 'tab' },
+    { id: 'historial', label: 'HISTORIAL COMPLETO', icon: '📋', type: 'tab' },
+    ...(isAdmin ? [{ id: 'admin', label: 'ADMINISTRACIÓN', icon: '🔐', type: 'link' }] : []),
   ];
 
-  const handleNavClick = (id) => {
-    setActiveTab(id);
-    setSidebarOpen(false);
-  };
-
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-[#050a18] text-white font-sans tracking-tight" style={{ fontFamily: 'ui-rounded, sans-serif' }}>
+      
+      {/* Bordes Decorativos */}
+      <div className="fixed top-0 left-0 w-full h-[3px] bg-yellow-400 shadow-[0_0_20px_#facc15] z-50"></div>
+      <div className="fixed bottom-0 left-0 w-full h-[3px] bg-yellow-400 shadow-[0_0_20px_#facc15] z-50"></div>
 
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* ── Sidebar ── */}
-      <aside className={`
-        fixed md:static inset-y-0 left-0 z-30
-        w-56 bg-slate-900 text-white flex flex-col py-8 px-4 gap-2 shrink-0
-        transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:translate-x-0
-      `}>
-        <button
-          className="md:hidden absolute top-4 right-4 text-slate-400 hover:text-white text-xl"
-          onClick={() => setSidebarOpen(false)}
-        >
-          ✕
+      {/* Sidebar */}
+      <aside className={`fixed md:static inset-y-0 left-0 z-50 w-72 bg-[#0a0f1d] border-r border-white/10 flex flex-col py-12 px-6 transform transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
+        <div className="mb-12">
+          <h2 className="text-2xl font-black tracking-tighter italic">MACA<span className="text-yellow-400">ROOM</span></h2>
+          <div className="h-1 w-12 bg-yellow-400 mt-1"></div>
+        </div>
+        <nav className="flex flex-col gap-3">
+          {navItems.map(item => (
+            <button 
+              key={item.id} 
+              onClick={() => {
+                if (item.type === 'link') {
+                  handleAdminAccess();
+                } else {
+                  setActiveTab(item.id);
+                }
+                setSidebarOpen(false);
+              }} 
+              className={`flex items-center gap-4 px-5 py-4 rounded-xl text-xs font-black tracking-widest transition-all ${activeTab === item.id && item.type === 'tab' ? 'bg-yellow-400 text-black shadow-[0_0_25px_rgba(250,204,21,0.3)]' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            >
+              <span className="text-lg">{item.icon}</span>{item.label}
+            </button>
+          ))}
+        </nav>
+        <button onClick={logout} className="mt-auto flex items-center gap-4 px-5 py-4 text-xs font-bold text-slate-500 hover:text-red-400 transition-colors">
+          <span>🚪</span> CERRAR SESIÓN
         </button>
-
-        <div className="mb-6 px-2">
-          <p className="text-xl font-bold leading-tight">🗝️ Macaroom</p>
-          <p className="text-slate-400 text-xs mt-1">Escaperoom Dashboard</p>
-        </div>
-
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => handleNavClick(item.id)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left
-              ${activeTab === item.id
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-          >
-            <span>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
-
-        <div className="mt-auto pt-4 border-t border-slate-700">
-          <button
-            onClick={logout}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-red-600 hover:text-white transition-colors w-full text-left"
-          >
-            <span>🚪</span> Cerrar sesión
-          </button>
-        </div>
       </aside>
 
-      {/* ── Contenido principal ── */}
-      <div className="flex-1 flex flex-col min-w-0">
-
-        <header className="md:hidden flex items-center gap-3 bg-slate-900 text-white px-4 py-3 sticky top-0 z-10">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-slate-300 hover:text-white p-1"
-            aria-label="Abrir menú"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-          <span className="font-bold text-sm">🗝️ Macaroom</span>
-          <span className="text-slate-400 text-xs ml-1">
-            — {navItems.find(n => n.id === activeTab)?.label}
-          </span>
-        </header>
-
-        <main className="flex-1 px-4 md:px-8 py-6 md:py-8 overflow-auto">
-
-          {/* ════ PANEL DE CONTROL ════ */}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 bg-[radial-gradient(circle_at_top_right,_#101d35,_#050a18)]">
+        <main className="flex-1 p-6 md:p-12 overflow-auto">
+          
+          {/* VISTA PANEL */}
           {activeTab === 'panel' && (
-            <>
-              <h1 className="text-2xl font-bold text-slate-800 mb-1">Panel de control</h1>
-              <p className="text-gray-400 text-sm mb-6">Reservas en tiempo real</p>
+            <div className="max-w-7xl mx-auto space-y-10">
+              <header>
+                <h1 className="text-5xl font-black uppercase tracking-tighter text-white drop-shadow-lg">Panel de <span className="text-yellow-400">Control</span></h1>
+                <p className="text-blue-300 font-bold mt-2 uppercase tracking-widest text-sm">Centro de mando MacaRoom</p>
+              </header>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <KPICard label="Reservas totales"  value={total}             color="blue"   />
-                <KPICard label="Cancelaciones"     value={`${tasaCancel}%`}  color="red"    />
-                <KPICard label="Personas promedio" value={avgPersonas}       color="green"  />
-                <KPICard label="Reservas hoy"      value={hoy.length}        color="purple" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <KPICard label="Total Reservas" value={total} icon="📈" trend={12} />
+                <KPICard label="Tasa Cancelación" value={`${tasaCancel}%`} icon="⚠️" trend={-2} isCancelCard />
+                <KPICard label="Promedio Grupo" value={avgPersonas} icon="👥" trend={5} />
+                <KPICard label="Hoy" value={hoy.length} icon="📅" trend={8} highlight />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <ChartCard title="Reservas por sala">
-                  <BarChart data={porSala}>
-                    <XAxis dataKey="sala" tick={{ fontSize: 12 }} />
-                    <YAxis /><Tooltip /><CartesianGrid strokeDasharray="3 3" />
-                    <Bar dataKey="total" fill="#2563EB" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ChartCard>
-                <ChartCard title="🕒 Reservas por franja horaria">
-                  <LineChart data={porHora}>
-                    <XAxis dataKey="hora" tick={{ fontSize: 11 }} /><YAxis /><Tooltip />
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <Line type="monotone" dataKey="total" stroke="#0891B2" strokeWidth={2} />
-                  </LineChart>
-                </ChartCard>
-              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <ChartContainer title="RESERVAS POR SALA">
+                    <BarChart data={porSala}>
+                      <XAxis dataKey="sala" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip cursor={{fill: 'rgba(255,255,255,0.05)'}} contentStyle={{backgroundColor: '#0a0f1d', border: '1px solid #334155', borderRadius: '8px'}} />
+                      <Bar dataKey="total" fill="#facc15" radius={[4, 4, 0, 0]} barSize={40} />
+                    </BarChart>
+                </ChartContainer>
 
-              <div className="bg-white rounded-2xl shadow p-4 md:p-6">
-                <h2 className="font-bold text-lg mb-4 text-gray-900">📅 Reservas de hoy</h2>
-                {hoy.length === 0
-                  ? <p className="text-gray-400">No hay reservas para hoy.</p>
-                  : <ReservasTable reservas={hoy} />
-                }
+                <ChartContainer title="RESERVAS POR HORA">
+                    <LineChart data={porHora}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                      <XAxis dataKey="hora" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                      <Tooltip contentStyle={{backgroundColor: '#0a0f1d', border: '1px solid #334155', borderRadius: '8px'}} />
+                      <Line type="monotone" dataKey="total" stroke="#facc15" strokeWidth={3} dot={{ r: 4, fill: '#facc15' }} />
+                    </LineChart>
+                </ChartContainer>
+                
+                <div className="lg:col-span-2">
+                  <div className="bg-white/95 backdrop-blur-xl rounded-[2rem] p-8 shadow-2xl overflow-hidden border-t-4 border-yellow-400">
+                    <h3 className="text-slate-900 font-black text-3xl mb-8 flex items-center gap-3">RESERVAS PARA HOY</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-slate-200">
+                            {['Hora', 'Sala', 'Nombre', 'Teléfono', 'Pax'].map((h) => (
+                              <th key={h} className="pb-4 px-2">
+                                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{h}</span>
+                                <input 
+                                  className="w-full bg-slate-100 border-none rounded-lg p-2 text-xs text-slate-900 focus:ring-2 focus:ring-yellow-400 outline-none transition-all"
+                                  placeholder="Filtrar..."
+                                  value={filtersHoy[h.toLowerCase().replace('pax', 'personas')]}
+                                  onChange={(e) => setFiltersHoy({...filtersHoy, [h.toLowerCase().replace('pax', 'personas')]: e.target.value})}
+                                />
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-900">
+                          {hoyFiltrado.map(r => (
+                            <tr key={r.id} className="hover:bg-blue-50 transition-colors">
+                              <td className="py-4 px-2 font-black text-lg">{r.hora?.slice(0, 5)}</td>
+                              <td className="py-4 px-2"><span className={`text-[10px] font-black px-3 py-1 rounded-full ${r.sala.includes('Hotel') ? 'bg-blue-600 text-white' : 'bg-purple-600 text-white'}`}>{r.sala}</span></td>
+                              <td className="py-4 px-2 font-bold text-slate-800">{r.nombre}</td>
+                              <td className="py-4 px-2 text-slate-500 font-medium">{r.telefono}</td>
+                              <td className="py-4 px-2"><span className="bg-slate-900 text-yellow-400 px-4 py-1 rounded-lg font-black text-sm">{r.personas}</span></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </>
+            </div>
           )}
 
-          {/* ════ HISTORIAL ════ */}
+          {/* VISTA HISTORIAL */}
           {activeTab === 'historial' && (
-            <>
-              <h1 className="text-2xl font-bold text-slate-800 mb-1">Historial de reservas</h1>
-              <p className="text-gray-400 text-sm mb-6">
-                Total acumulado: <span className="font-semibold text-slate-700">{total} reservas</span>
-              </p>
-
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-                <KPICard label="Total reservas" value={total}      color="blue"   />
-                <KPICard label="Canceladas"     value={canceladas} color="red"    />
-                <KPICard label="Hotel Premier"
-                  value={reservas.filter(r => r.sala === 'Hotel Premier').length}
-                  color="green" />
-                <KPICard label="Superheroes"
-                  value={reservas.filter(r => r.sala === 'Superheroes').length}
-                  color="purple" />
-              </div>
-
-              <div className="bg-white rounded-2xl shadow p-4 md:p-6">
-                <h2 className="font-bold text-lg mb-4 text-gray-900">📋 Todas las reservas</h2>
-                {reservasOrdenadas.length === 0
-                  ? <p className="text-gray-400">No hay reservas registradas.</p>
-                  : (
-                    <div className="overflow-x-auto -mx-4 md:mx-0">
-                      <table className="w-full text-sm min-w-[640px]">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            {['ID', 'Código', 'Fecha', 'Hora', 'Sala', 'Nombre', 'Personas', 'Email', 'Estado'].map(h => (
-                              <th key={h} className="px-3 py-2 text-left text-gray-600 font-semibold whitespace-nowrap">
-                                {h}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {reservasOrdenadas.map(r => (
-                            <tr key={r.id} className="border-t hover:bg-slate-50 transition-colors">
-                              <td className="px-3 py-2 text-gray-500 text-xs">{r.id}</td>
-                              <td className="px-3 py-2 font-mono text-xs text-blue-700">{r.codigo}</td>
-                              <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{r.fecha}</td>
-                              <td className="px-3 py-2 text-gray-700">{r.hora?.slice(0, 5)}</td>
-                              <td className="px-3 py-2">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                                  ${r.sala === 'Hotel Premier'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-purple-100 text-purple-700'}`}>
-                                  {r.sala}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2 text-gray-900 font-medium">{r.nombre}</td>
-                              <td className="px-3 py-2 text-center text-gray-700">{r.personas}</td>
-                              <td className="px-3 py-2 text-gray-500 text-xs">{r.email}</td>
-                              <td className="px-3 py-2">
-                                <span className={`px-2 py-0.5 rounded-full text-xs font-medium
-                                  ${r.estado === 'CANCELADA'
-                                    ? 'bg-red-100 text-red-700'
-                                    : 'bg-green-100 text-green-700'}`}>
-                                  {r.estado ?? 'ACTIVA'}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )
-                }
-              </div>
-            </>
+             <div className="max-w-7xl mx-auto space-y-8">
+             <header>
+               <h1 className="text-5xl font-black uppercase tracking-tighter text-white">Historial <span className="text-yellow-400">General</span></h1>
+             </header>
+             <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border-t-4 border-yellow-400 text-slate-900">
+               <div className="overflow-x-auto">
+                 <table className="w-full text-sm min-w-[1000px]">
+                   <thead>
+                     <tr className="border-b border-slate-200">
+                       {['Código', 'Fecha', 'Hora', 'Sala', 'Nombre', 'Teléfono', 'Pax', 'Email', 'Estado'].map(h => (
+                         <th key={h} className="pb-6 px-3">
+                           <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{h}</span>
+                           <input 
+                               className="w-full bg-slate-100 border-none rounded-lg p-2 text-xs text-slate-900 focus:ring-2 focus:ring-yellow-400 outline-none"
+                               placeholder="..."
+                               value={filtersHist[h.toLowerCase().replace('pax', 'personas').replace('é', 'e')]}
+                               onChange={(e) => setFiltersHist({...filtersHist, [h.toLowerCase().replace('pax', 'personas').replace('é', 'e')]: e.target.value})}
+                             />
+                         </th>
+                       ))}
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-slate-100">
+                     {historialFiltrado.map(r => (
+                       <tr key={r.id} className="hover:bg-blue-50 transition-colors">
+                         <td className="py-4 px-3 font-mono text-xs font-bold text-blue-600 uppercase">{r.codigo}</td>
+                         <td className="py-4 px-3 text-slate-600 font-bold">{r.fecha}</td>
+                         <td className="py-4 px-3 text-slate-900 font-black">{r.hora?.slice(0, 5)}</td>
+                         <td className="py-4 px-3 text-slate-800 font-medium">{r.sala}</td>
+                         <td className="py-4 px-3 text-slate-900 font-bold">{r.nombre}</td>
+                         <td className="py-4 px-3 text-slate-500 font-medium">{r.telefono}</td>
+                         <td className="py-4 px-3 text-center font-black text-slate-900">{r.personas}</td>
+                         <td className="py-4 px-3 text-slate-400 text-xs truncate max-w-[120px]">{r.email}</td>
+                         <td className="py-4 px-3 text-right">
+                           <span className={`px-4 py-1 rounded-full text-[10px] font-black uppercase ${r.estado === 'CANCELADA' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                             {r.estado ?? 'ACTIVA'}
+                           </span>
+                         </td>
+                       </tr>
+                     ))}
+                   </tbody>
+                 </table>
+               </div>
+             </div>
+           </div>
           )}
-
-          {/* ════ ADMIN ════ */}
-          {activeTab === 'admin' && isAdmin && (
-            <>
-              <h1 className="text-2xl font-bold text-slate-800 mb-1">🔐 Admin</h1>
-              <p className="text-gray-400 text-sm mb-6">Métricas técnicas del agente</p>
-
-              <div className="bg-white rounded-2xl shadow p-4 md:p-6">
-                <h2 className="font-bold text-lg mb-4 text-gray-900">📊 Métricas agente</h2>
-                {!metricas || metricas.length === 0
-                  ? <p className="text-gray-400">No hay métricas registradas.</p>
-                  : (
-                    <div className="overflow-x-auto -mx-4 md:mx-0">
-                      <table className="w-full text-sm min-w-[500px]">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            {Object.keys(metricas[0]).map(col => (
-                              <th key={col} className="px-3 py-2 text-left text-gray-600 font-semibold whitespace-nowrap capitalize">
-                                {col}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {metricas.map((m, i) => (
-                            <tr key={i} className="border-t hover:bg-slate-50 transition-colors">
-                              {Object.values(m).map((val, j) => (
-                                <td key={j} className="px-3 py-2 text-gray-700 text-xs whitespace-nowrap">
-                                  {val ?? '—'}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )
-                }
-              </div>
-            </>
-          )}
-
         </main>
       </div>
     </div>
   );
 }
 
-// ── Componentes auxiliares ──
-
-function ReservasTable({ reservas }) {
+// --- COMPONENTES AUXILIARES ---
+function KPICard({ label, value, icon, trend, highlight = false, isCancelCard = false }) {
+  const isUp = trend > 0;
   return (
-    <div className="overflow-x-auto -mx-4 md:mx-0">
-      <table className="w-full text-sm min-w-[400px]">
-        <thead className="bg-gray-50">
-          <tr>
-            {['Hora', 'Sala', 'Nombre', 'Personas'].map(h => (
-              <th key={h} className="px-3 py-2 text-left text-gray-600">{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {reservas.map(r => (
-            <tr key={r.id} className="border-t hover:bg-slate-50">
-              <td className="px-3 py-2 text-gray-900">{r.hora?.slice(0, 5)}</td>
-              <td className="px-3 py-2 text-gray-900">{r.sala}</td>
-              <td className="px-3 py-2 text-gray-900">{r.nombre}</td>
-              <td className="px-3 py-2 text-gray-900">{r.personas}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className={`p-4 rounded-xl border transition-all duration-300 hover:scale-105 ${highlight ? 'bg-yellow-400 border-yellow-300 shadow-[0_0_20px_#facc15]' : 'bg-[#0a0f1d] border-white/5 shadow-xl'}`}>
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-xl">{icon}</span>
+        <div className={`flex items-center gap-1 font-black text-[10px] ${isCancelCard ? 'text-red-500' : (highlight ? 'text-black' : (isUp ? 'text-green-400' : 'text-red-400'))}`}>
+          {isUp ? '▲' : '▼'} {Math.abs(trend)}%
+        </div>
+      </div>
+      <p className={`text-2xl font-black tracking-tighter ${highlight ? 'text-black' : (isCancelCard ? 'text-red-500' : 'text-white')}`}>{value}</p>
+      <p className={`text-[9px] font-black uppercase tracking-[0.2em] mt-1 ${highlight ? 'text-black/60' : 'text-slate-500'}`}>{label}</p>
     </div>
   );
 }
 
-function KPICard({ label, value, color }) {
-  const colors = {
-    blue:   'bg-blue-50 text-blue-700',
-    red:    'bg-red-50 text-red-700',
-    green:  'bg-green-50 text-green-700',
-    purple: 'bg-purple-50 text-purple-700',
-  };
+function ChartContainer({ title, children }) {
   return (
-    <div className={`rounded-2xl p-4 md:p-5 ${colors[color]}`}>
-      <p className="text-2xl md:text-3xl font-bold">{value}</p>
-      <p className="text-xs md:text-sm mt-1 opacity-75">{label}</p>
-    </div>
-  );
-}
-
-function ChartCard({ title, children }) {
-  return (
-    <div className="bg-white rounded-2xl shadow p-4 md:p-6">
-      <h2 className="font-bold text-base md:text-lg mb-4 text-gray-900">{title}</h2>
-      <ResponsiveContainer width="100%" height={200}>
-        {children}
-      </ResponsiveContainer>
+    <div className="bg-[#0a0f1d] border border-white/5 rounded-[2.5rem] p-8 shadow-xl">
+      <h3 className="text-lg font-black tracking-[0.2em] text-yellow-400 mb-8 uppercase text-center border-b border-white/5 pb-4">{title}</h3>
+      <div className="h-48 w-full">
+        <ResponsiveContainer width="99%" height="100%">{children}</ResponsiveContainer>
+      </div>
     </div>
   );
 }
