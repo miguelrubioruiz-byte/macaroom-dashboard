@@ -168,7 +168,7 @@ export default function Dashboard() {
           
           {activeTab === 'panel' && (
             <div className="max-w-7xl mx-auto space-y-10">
-              <header>
+              <header className="pt-16 md:pt-0">
                 <h1 className="text-5xl font-black uppercase tracking-tighter text-white drop-shadow-lg">Panel de <span className="text-yellow-400">Control</span></h1>
               </header>
 
@@ -245,7 +245,7 @@ export default function Dashboard() {
 
           {activeTab === 'historial' && (
              <div className="max-w-7xl mx-auto space-y-8">
-             <header>
+             <header className="pt-16 md:pt-0">
                <h1 className="text-5xl font-black uppercase tracking-tighter text-white">Historial <span className="text-yellow-400">General</span></h1>
              </header>
              <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border-t-4 border-yellow-400 text-slate-900">
@@ -327,4 +327,3 @@ function ChartContainer({ title, children }) {
     </div>
   );
 }
-
