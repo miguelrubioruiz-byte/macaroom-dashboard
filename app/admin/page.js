@@ -161,27 +161,28 @@ export default function AdminDashboard() {
           <h2 className="font-bold text-lg mb-4 text-white uppercase tracking-widest">
             {view === 'admin' ? 'Últimas 15 ejecuciones' : 'Base de datos completa'}
           </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-gray-300">
-              <thead>
+          {/* Contenedor con Scroll Vertical y Horizontal */}
+          <div className="overflow-x-auto overflow-y-auto max-h-[600px] scrollbar-thin scrollbar-thumb-white/10">
+            <table className="w-full text-sm text-gray-300 border-collapse">
+              <thead className="sticky top-0 bg-[#14171c] z-10">
                 <tr className="text-gray-500 border-b border-white/10 text-left">
-                  <th className="px-3 py-4 min-w-[150px]">
+                  <th className="px-3 py-4 min-w-[150px] bg-[#14171c]">
                     <span className="uppercase font-bold tracking-tighter">Fecha/hora</span>
                     <FilterInput col="fecha" placeholder="Filtrar fecha..." value={filters.fecha} onChange={handleFilterChange} onClear={clearFilter} />
                   </th>
-                  <th className="px-3 py-4 min-w-[150px]">
+                  <th className="px-3 py-4 min-w-[150px] bg-[#14171c]">
                     <span className="uppercase font-bold tracking-tighter">Operación</span>
                     <FilterInput col="operacion" placeholder="Operación..." value={filters.operacion} onChange={handleFilterChange} onClear={clearFilter} />
                   </th>
-                  <th className="px-3 py-4 min-w-[100px]">
+                  <th className="px-3 py-4 min-w-[100px] bg-[#14171c]">
                     <span className="uppercase font-bold tracking-tighter">Duración</span>
-                    <div className="mt-2 h-[26px]"></div> {/* Espaciador para alinear con los inputs de filtro */}
+                    <div className="mt-2 h-[26px]"></div> 
                   </th>
-                  <th className="px-3 py-4 min-w-[120px]">
+                  <th className="px-3 py-4 min-w-[120px] bg-[#14171c]">
                     <span className="uppercase font-bold tracking-tighter">Estado</span>
                     <FilterInput col="estado" placeholder="SUCCESS/ERROR..." value={filters.estado} onChange={handleFilterChange} onClear={clearFilter} />
                   </th>
-                  <th className="px-3 py-4">
+                  <th className="px-3 py-4 bg-[#14171c]">
                     <span className="uppercase font-bold tracking-tighter">Detalles</span>
                     <FilterInput col="detalles" placeholder="Contenido..." value={filters.detalles} onChange={handleFilterChange} onClear={clearFilter} />
                   </th>
