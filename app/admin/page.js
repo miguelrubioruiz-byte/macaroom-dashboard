@@ -88,6 +88,17 @@ export default function AdminDashboard() {
     setFilters(prev => ({ ...prev, [column]: '' }));
   };
 
+  // Función auxiliar para formatear la duración de cada fila
+  const formatDuration = (ms) => {
+    if (!ms) return '—';
+    if (ms < 1000) return `${ms}ms`;
+    const s = (ms / 1000).toFixed(1);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(ms / 60000);
+    const rs = ((ms % 60000) / 1000).toFixed(0);
+    return `${m}m ${rs}s`;
+  };
+
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-[#0a0c10]">
       <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-white/10 flex flex-col justify-between p-6 shrink-0 bg-[#0f1116]">
@@ -162,6 +173,10 @@ export default function AdminDashboard() {
                     <span className="uppercase font-bold tracking-tighter">Operación</span>
                     <FilterInput col="operacion" placeholder="Operación..." value={filters.operacion} onChange={handleFilterChange} onClear={clearFilter} />
                   </th>
+                  <th className="px-3 py-4 min-w-[100px]">
+                    <span className="uppercase font-bold tracking-tighter">Duración</span>
+                    <div className="mt-2 h-[26px]"></div> {/* Espaciador para alinear con los inputs de filtro */}
+                  </th>
                   <th className="px-3 py-4 min-w-[120px]">
                     <span className="uppercase font-bold tracking-tighter">Estado</span>
                     <FilterInput col="estado" placeholder="SUCCESS/ERROR..." value={filters.estado} onChange={handleFilterChange} onClear={clearFilter} />
@@ -179,6 +194,9 @@ export default function AdminDashboard() {
                       {new Date(m.timestamp).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </td>
                     <td className="px-3 py-4 text-white font-medium whitespace-nowrap uppercase text-[11px]">{m.tipo_operacion}</td>
+                    <td className="px-3 py-4 font-mono text-[11px] text-gray-400">
+                      {formatDuration(m.duracion_ms)}
+                    </td>
                     <td className="px-3 py-4">
                       <span className={`font-bold px-3 py-1 rounded-full text-[10px] uppercase tracking-widest ${m.estado === 'SUCCESS' ? 'text-green-400 bg-green-400/10' : 'text-red-400 bg-red-400/10'}`}>
                         {m.estado}
@@ -211,12 +229,3 @@ function KPICard({ label, value, color }) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-

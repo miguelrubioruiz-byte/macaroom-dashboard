@@ -31,21 +31,35 @@ export default function Dashboard() {
 
   useEffect(() => {
     setIsMounted(true);
-    // Verificación inicial de sesión (opcional si usas la contraseña manual)
+    // Verificación inicial de sesión
     fetch('/api/me')
       .then(r => r.json())
       .then(d => { if(d?.role === 'admin') setIsAdmin(true); })
       .catch(err => console.error("Error en sesión:", err));
   }, []);
 
-  // --- LÓGICA DE ACCESO: Pide contraseña y activa el botón ---
-  const handleVerifyAdmin = () => {
+  // --- LÓGICA DE ACCESO: Valida con la API y redirige a /admin ---
+  const handleVerifyAdmin = async () => {
     const pass = prompt("Introduce la contraseña de administrador:");
-    if (pass === 'ClaveAdminPrivada2026') { 
-      setIsAdmin(true);
-      alert("Modo administrador activado. Ahora puedes ver el acceso en el menú.");
-    } else if (pass !== null) {
-      alert("Contraseña incorrecta");
+    if (!pass) return;
+
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pass }),
+      });
+
+      if (res.ok) {
+        setIsAdmin(true);
+        // Al ser exitoso, la API de tu foto ya habrá seteado la cookie como 'admin'
+        window.location.href = '/admin'; 
+      } else {
+        alert("Contraseña incorrecta");
+      }
+    } catch (err) {
+      console.error("Error al verificar:", err);
+      alert("Error de conexión con el servidor");
     }
   };
 
@@ -132,7 +146,6 @@ export default function Dashboard() {
             <span>📋</span> HISTORIAL COMPLETO
           </button>
           
-          {/* BOTÓN CONDICIONAL: Solo aparece si isAdmin es true */}
           {isAdmin ? (
             <a href="/admin" className="flex items-center gap-4 px-5 py-4 rounded-xl text-xs font-black tracking-widest text-slate-400 hover:bg-white/5 hover:text-yellow-400">
               <span>🔐</span> ADMINISTRACIÓN
@@ -189,21 +202,20 @@ export default function Dashboard() {
                 <div className="lg:col-span-2">
                   <div className="bg-white/95 backdrop-blur-xl rounded-[2rem] p-8 shadow-2xl overflow-hidden border-t-4 border-yellow-400">
                     <h3 className="text-slate-900 font-black text-3xl mb-8">RESERVAS PARA HOY</h3>
-                    <div className="overflow-x-auto">
+                    <div className="overflow-x-auto max-h-[500px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-yellow-400">
                       <table className="w-full text-left">
-                        <thead>
+                        <thead className="sticky top-0 z-10" style={{ backgroundColor: 'inherit' }}>
                           <tr className="border-b border-slate-200">
                             {['Hora', 'Sala', 'Nombre', 'Teléfono', 'Pax'].map((h) => (
                               <th key={h} className="pb-4 px-2">
                                 <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{h}</span>
                                 <div className="relative flex items-center">
                                   <input 
-                                    className="w-full bg-slate-100 border-none rounded-lg p-2 pr-8 text-xs text-slate-900 focus:ring-2 focus:ring-yellow-400 outline-none"
+                                    className="w-full bg-slate-100/50 border-none rounded-lg p-2 pr-8 text-xs text-slate-900 focus:ring-2 focus:ring-yellow-400 outline-none"
                                     placeholder="Filtrar..."
                                     value={filtersHoy[h.toLowerCase().replace('pax', 'personas')]}
                                     onChange={(e) => setFiltersHoy({...filtersHoy, [h.toLowerCase().replace('pax', 'personas')]: e.target.value})}
                                   />
-                                  {/* BOTÓN X PARA BORRAR FILTRO */}
                                   {filtersHoy[h.toLowerCase().replace('pax', 'personas')] && (
                                     <button onClick={() => setFiltersHoy({...filtersHoy, [h.toLowerCase().replace('pax', 'personas')]: ''})} className="absolute right-2 text-slate-400 hover:text-red-500 font-bold text-sm">✕</button>
                                   )}
@@ -237,21 +249,20 @@ export default function Dashboard() {
                <h1 className="text-5xl font-black uppercase tracking-tighter text-white">Historial <span className="text-yellow-400">General</span></h1>
              </header>
              <div className="bg-white/95 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border-t-4 border-yellow-400 text-slate-900">
-               <div className="overflow-x-auto">
+               <div className="overflow-x-auto max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-yellow-400">
                  <table className="w-full text-sm min-w-[1000px]">
-                   <thead>
+                   <thead className="sticky top-0 z-10" style={{ backgroundColor: 'inherit' }}>
                      <tr className="border-b border-slate-200">
                        {['Código', 'Fecha', 'Hora', 'Sala', 'Nombre', 'Teléfono', 'Pax', 'Email', 'Estado'].map(h => (
                          <th key={h} className="pb-6 px-3">
                            <span className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{h}</span>
                            <div className="relative flex items-center">
                              <input 
-                               className="w-full bg-slate-100 border-none rounded-lg p-2 pr-8 text-xs text-slate-900 focus:ring-2 focus:ring-yellow-400 outline-none"
+                               className="w-full bg-slate-100/50 border-none rounded-lg p-2 pr-8 text-xs text-slate-900 focus:ring-2 focus:ring-yellow-400 outline-none"
                                placeholder="..."
                                value={filtersHist[h.toLowerCase().replace('pax', 'personas').replace('é', 'e')]}
                                onChange={(e) => setFiltersHist({...filtersHist, [h.toLowerCase().replace('pax', 'personas').replace('é', 'e')]: e.target.value})}
                              />
-                             {/* BOTÓN X PARA BORRAR FILTRO */}
                              {filtersHist[h.toLowerCase().replace('pax', 'personas').replace('é', 'e')] && (
                                <button onClick={() => setFiltersHist({...filtersHist, [h.toLowerCase().replace('pax', 'personas').replace('é', 'e')]: ''})} className="absolute right-2 text-slate-400 hover:text-red-500 font-bold text-sm">✕</button>
                              )}
@@ -316,3 +327,4 @@ function ChartContainer({ title, children }) {
     </div>
   );
 }
+
